@@ -76,7 +76,8 @@ class CPNDataset(Dataset):
         ], bbox_params=A.BboxParams(
             format='yolo',
             label_fields=['class_labels'],
-            min_visibility=0.3
+            min_visibility=0.3,
+            clip=True  # Clip bboxes to [0, 1] range
         ))
         
         # Template transform (no augmentation, just resize + normalize)
