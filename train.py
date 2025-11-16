@@ -123,7 +123,7 @@ def train_one_epoch(model, dataloader, criterion, optimizer, scaler, device, epo
         # Forward with autocast
         optimizer.zero_grad()
         
-        with autocast():
+        with autocast('cuda'):
             pred_objectness, pred_bbox = model(templates, searches)
             losses = criterion(pred_objectness, pred_bbox, target_bboxes)
         
@@ -166,7 +166,7 @@ def validate(model, dataloader, criterion, device):
         target_bboxes = [t['bbox'].to(device) for t in targets]
         
         # Forward
-        with autocast():
+        with autocast('cuda'):
             pred_objectness, pred_bbox = model(templates, searches)
             losses = criterion(pred_objectness, pred_bbox, target_bboxes)
         
@@ -252,17 +252,17 @@ def main():
         ckpt_dtype = first_param.dtype
         print(f'Checkpoint dtype: {ckpt_dtype}')
         
-        # If FP32, convert to FP16
-        if ckpt_dtype == torch.float32:
-            print('Converting FP32 checkpoint to FP16...')
-            checkpoint = {k: v.half() if v.dtype == torch.float32 else v 
+        # Convert to FP32 if needed (mixed precision training requires FP32 model)
+        if ckpt_dtype == torch.float16:
+            print('Converting FP16 checkpoint to FP32 for mixed precision training...')
+            checkpoint = {k: v.float() if v.dtype == torch.float16 else v 
                          for k, v in checkpoint.items()}
         
         model.load_state_dict(checkpoint)
         print('Checkpoint loaded (starting from epoch 0 as requested)')
     
-    # Convert model to FP16 and move to device
-    model = model.half().to(device)
+    # Move model to device (keep FP32 for mixed precision training)
+    model = model.to(device)
     
     # Count parameters
     total_params = sum(p.numel() for p in model.parameters())
@@ -277,8 +277,8 @@ def main():
     # Build loss
     criterion = CPNLoss().to(device)
     
-    # GradScaler for FP16
-    scaler = GradScaler()
+    # GradScaler for mixed precision (autocast will handle FP16 automatically)
+    scaler = GradScaler('cuda')
     
     # Training loop
     print('\n=== Training ===')

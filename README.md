@@ -160,7 +160,10 @@ python train.py \
   - Linear warmup (5 epochs)
   - Cosine annealing from max_lr to min_lr
   - Always uses cosine scheduler
-- **Precision:** FP16 mixed precision throughout
+- **Precision:** 
+  - Mixed precision training (autocast + GradScaler)
+  - Model in FP32, operations auto-cast to FP16 when beneficial
+  - Gradients computed in FP32 for numerical stability
 - **Logging:** Per epoch only (no per-iteration logging)
 
 ## Dataset Structure
@@ -187,9 +190,10 @@ data_dir/
 ## Checkpoint Format
 
 - **Saved:** Model state_dict only (no optimizer/scheduler)
-- **Precision:** FP16
-- **Loading:** Automatic FP32→FP16 conversion if needed
+- **Precision:** FP32 (for mixed precision training compatibility)
+- **Loading:** Automatic FP16→FP32 conversion if loading old FP16 checkpoints
 - **Frequency:** Every 5 epochs + best model + last checkpoint
+- **Note:** Checkpoints are saved in FP32 to ensure compatibility with mixed precision training
 
 ## Design Rationale
 
