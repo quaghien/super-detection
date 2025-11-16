@@ -203,13 +203,17 @@ class CPNLoss(nn.Module):
         Compute combined loss.
         
         Args:
-            pred_objectness: (B, H, W) predicted objectness scores (after sigmoid)
+            pred_objectness: (B, 1, H, W) or (B, H, W) predicted objectness scores (after sigmoid)
             pred_bbox: (B, 4, H, W) predicted bbox offsets
             target_bboxes: List of B tensors, each (4,) in YOLO format
         
         Returns:
             Dictionary of losses
         """
+        # Handle both (B, 1, H, W) and (B, H, W) shapes
+        if pred_objectness.dim() == 4:
+            pred_objectness = pred_objectness.squeeze(1)  # (B, 1, H, W) -> (B, H, W)
+        
         B, H, W = pred_objectness.shape
         device = pred_objectness.device
         

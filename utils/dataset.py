@@ -56,12 +56,12 @@ class CPNDataset(Dataset):
         # Augmentation (for search only, geometric + light color)
         self.search_aug = A.Compose([
             A.HorizontalFlip(p=0.5),
-            A.ShiftScaleRotate(
-                shift_limit=0.03,
-                scale_limit=0.07,
-                rotate_limit=3,
+            A.Affine(
+                translate_percent={'x': (-0.03, 0.03), 'y': (-0.03, 0.03)},
+                scale=(0.93, 1.07),
+                rotate=(-3, 3),
                 border_mode=cv2.BORDER_CONSTANT,
-                value=0,
+                cval=0,
                 p=0.7
             ),
             A.ColorJitter(
@@ -72,7 +72,7 @@ class CPNDataset(Dataset):
                 p=0.5
             ),
             A.GaussianBlur(blur_limit=(3, 5), p=0.3),
-            A.GaussNoise(var_limit=(5.0, 15.0), p=0.15),
+            A.GaussNoise(p=0.15),
         ], bbox_params=A.BboxParams(
             format='yolo',
             label_fields=['class_labels'],
@@ -133,18 +133,19 @@ class CPNDataset(Dataset):
         search_img = cv2.imread(str(search_path))
         search_img = cv2.cvtColor(search_img, cv2.COLOR_BGR2RGB)
         
-        # Load label
+        # Load label (YOLO format: cls cx cy w h - but we ignore cls)
         label_path = self.label_dir / (search_path.stem + '.txt')
         with open(label_path, 'r') as f:
             line = f.readline().strip()
-            cls, cx, cy, w, h = map(float, line.split())
+            parts = line.split()
+            cx, cy, w, h = map(float, parts[1:5])  # Skip class, only take bbox
         
         # Apply search augmentation (before resize)
         if np.random.rand() < self.augment_prob:
             augmented = self.search_aug(
                 image=search_img,
                 bboxes=[[cx, cy, w, h]],
-                class_labels=[int(cls)]
+                class_labels=[0]  # Dummy class for albumentations
             )
             search_img = augmented['image']
             if len(augmented['bboxes']) > 0:
@@ -172,10 +173,9 @@ class CPNDataset(Dataset):
         
         templates = torch.stack(template_tensors, dim=0)  # (3, 3, H, W)
         
-        # Target bbox (normalized YOLO format)
+        # Target bbox (normalized YOLO format) - no class needed
         target = {
-            'bbox': torch.tensor([cx, cy, w, h], dtype=torch.float32),
-            'class': int(cls)
+            'bbox': torch.tensor([cx, cy, w, h], dtype=torch.float32)
         }
         
         return templates, search_tensor, target
@@ -208,7 +208,6 @@ if __name__ == "__main__":
     print(f"  Templates: {templates.shape}")
     print(f"  Search: {search.shape}")
     print(f"  Target bbox: {target['bbox']}")
-    print(f"  Target class: {target['class']}")
     
     # Test dataloader
     from torch.utils.data import DataLoader
