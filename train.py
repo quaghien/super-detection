@@ -136,6 +136,14 @@ def train_one_epoch(model, dataloader, criterion, optimizer, scaler, device, epo
         total_focal += losses['loss_focal'].item()
         total_l1 += losses['loss_l1'].item()
         total_giou += losses['loss_giou'].item()
+        
+        # Update progress bar with current losses
+        pbar.set_postfix({
+            'loss': f"{losses['loss'].item():.4f}",
+            'focal': f"{losses['loss_focal'].item():.3f}",
+            'l1': f"{losses['loss_l1'].item():.3f}",
+            'giou': f"{losses['loss_giou'].item():.3f}"
+        })
     
     # Return average losses
     return {
