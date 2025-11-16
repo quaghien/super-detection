@@ -55,21 +55,23 @@ class DetectionHead(nn.Module):
         # Special init for cls head (to have low initial confidence)
         nn.init.constant_(self.cls_head.bias, -2.0)
     
-    def forward(self, x):
+    def forward(self, x, apply_sigmoid=False):
         """
         Args:
             x: (B, 321, H, W) - concatenated correlation + P3 features
+            apply_sigmoid: bool - whether to apply sigmoid (True for inference, False for training)
         
         Returns:
-            objectness: (B, 1, H, W) - sigmoid scores in [0, 1]
+            objectness: (B, 1, H, W) - logits or sigmoid scores
             bbox_offsets: (B, 4, H, W) - (dx, dy, dw, dh)
         """
         # Shared feature extraction
         x = self.conv1(x)  # (B, 160, H, W)
         x = self.conv2(x)  # (B, 160, H, W)
         
-        # Classification: objectness with sigmoid
-        objectness = torch.sigmoid(self.cls_head(x))  # (B, 1, H, W)
+        # Classification: objectness logits (or with sigmoid for inference)
+        objectness_logits = self.cls_head(x)  # (B, 1, H, W)
+        objectness = torch.sigmoid(objectness_logits) if apply_sigmoid else objectness_logits
         
         # Regression: bbox offsets (no activation, direct regression)
         bbox_offsets = self.reg_head(x)  # (B, 4, H, W)

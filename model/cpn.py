@@ -84,8 +84,8 @@ class CPN(nn.Module):
         # Concatenate correlation + P3 features
         combined = torch.cat([corr_fused, p3_cropped], dim=1)  # (B, 321, H, W)
         
-        # Detection head
-        objectness, bbox_offsets = self.detection_head(combined)
+        # Detection head (returns logits for training)
+        objectness, bbox_offsets = self.detection_head(combined, apply_sigmoid=False)
         
         return objectness, bbox_offsets
     
@@ -104,8 +104,43 @@ class CPN(nn.Module):
             bbox: [cx, cy, w, h] in absolute coordinates
         """
         self.eval()
+        
+        B = search.shape[0]
+        
+        # Extract template features (3 templates)
+        template_pyramids = []
+        for i in range(3):
+            template_i = templates[:, i]  # (B, 3, H_t, W_t)
+            pyramid_i = self.backbone(template_i)
+            template_pyramids.append(pyramid_i)
+        
+        # Extract search features
+        search_pyramid = self.backbone(search)
+        
+        # Compute multi-scale correlation
+        corr_maps = self.correlation(template_pyramids, search_pyramid)
+        
+        # Get P3 correlation size for fusion target
+        _, _, H_corr, W_corr = corr_maps['p3'].shape
+        
+        # Fuse multi-scale correlations
+        corr_fused = self.scale_fusion(corr_maps, target_size=(H_corr, W_corr))
+        
+        # Crop P3 search features to match correlation size
+        p3_search = search_pyramid['p3']
+        _, _, H_p3, W_p3 = p3_search.shape
+        
+        # Center crop P3 to match correlation size
+        h_start = (H_p3 - H_corr) // 2
+        w_start = (W_p3 - W_corr) // 2
+        p3_cropped = p3_search[:, :, h_start:h_start+H_corr, w_start:w_start+W_corr]
+        
+        # Concatenate correlation + P3 features
+        combined = torch.cat([corr_fused, p3_cropped], dim=1)
+        
+        # Detection head (apply sigmoid for inference)
         with torch.no_grad():
-            objectness, bbox_offsets = self.forward(templates, search)
+            objectness, bbox_offsets = self.detection_head(combined, apply_sigmoid=True)
         
         B, _, H_out, W_out = objectness.shape
         _, _, H_search, W_search = search.shape

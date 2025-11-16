@@ -5,12 +5,12 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 
-def focal_loss(pred, target, alpha=0.25, gamma=2.0):
+def focal_loss(pred_logits, target, alpha=0.25, gamma=2.0):
     """
     Focal Loss for objectness classification.
     
     Args:
-        pred: (B, H, W) sigmoid probabilities
+        pred_logits: (B, H, W) predicted logits (before sigmoid)
         target: (B, H, W) binary labels (0 or 1)
         alpha: Weighting factor for positive class
         gamma: Focusing parameter
@@ -18,10 +18,12 @@ def focal_loss(pred, target, alpha=0.25, gamma=2.0):
     Returns:
         Scalar loss
     """
-    bce_loss = F.binary_cross_entropy(pred, target, reduction='none')
+    # BCE loss with logits (safe for autocast)
+    bce_loss = F.binary_cross_entropy_with_logits(pred_logits, target, reduction='none')
     
-    # Focal weighting
-    pt = torch.where(target == 1, pred, 1 - pred)
+    # Get probabilities for focal weighting
+    pred_prob = torch.sigmoid(pred_logits)
+    pt = torch.where(target == 1, pred_prob, 1 - pred_prob)
     focal_weight = (1 - pt) ** gamma
     
     # Alpha weighting
@@ -203,7 +205,7 @@ class CPNLoss(nn.Module):
         Compute combined loss.
         
         Args:
-            pred_objectness: (B, 1, H, W) or (B, H, W) predicted objectness scores (after sigmoid)
+            pred_objectness: (B, 1, H, W) or (B, H, W) predicted objectness logits (before sigmoid)
             pred_bbox: (B, 4, H, W) predicted bbox offsets
             target_bboxes: List of B tensors, each (4,) in YOLO format
         
@@ -223,7 +225,7 @@ class CPNLoss(nn.Module):
         # Generate target objectness map (Gaussian around target center)
         target_objectness = self._generate_target_map(target_bboxes, H, W, device)
         
-        # Compute focal loss
+        # Compute focal loss (pred_objectness is logits now)
         loss_focal = focal_loss(
             pred_objectness,
             target_objectness,

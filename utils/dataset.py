@@ -61,7 +61,7 @@ class CPNDataset(Dataset):
                 scale=(0.93, 1.07),
                 rotate=(-3, 3),
                 border_mode=cv2.BORDER_CONSTANT,
-                cval=0,
+                fill=0,
                 p=0.7
             ),
             A.ColorJitter(
