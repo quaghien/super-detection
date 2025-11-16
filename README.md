@@ -79,7 +79,13 @@ Templates (3×3×384×384)     Search (3×1024×576)
 
 ## Training
 
-### Production Command
+### Quick Start
+```bash
+cd /home/quanghien/aivn/super-small-object
+python train.py
+```
+
+### Production Command (Full Parameters)
 ```bash
 python train.py \
   --data_dir /home/quanghien/aivn \
@@ -96,14 +102,39 @@ python train.py \
   --pretrained_backbone imagenet \
   --save_dir checkpoints \
   --save_freq 5 \
-  --num_workers 8
+  --num_workers 8 \
+  --device cuda
+```
+
+**Key Parameters:**
+- `--max_lr`: Maximum learning rate (default: 1e-4)
+- `--min_lr`: Minimum learning rate for cosine annealing (default: 1e-6)
+- `--warmup_epochs`: Linear warmup epochs (default: 5)
+- Logging: **Per epoch only** (no per-iteration logs)
+
+**Expected Output:**
+```
+=== Training ===
+Max LR: 1.00e-04, Min LR: 1.00e-06
+
+Epoch 1/100 | LR: 2.00e-05 | Train Loss: 0.5234 (F:0.123, L1:2.456, G:-1.234) | Val Loss: 0.4567 (F:0.098, L1:2.123, G:-0.987)
+  → Best: best_checkpoint.pth (val_loss=0.4567)
+Epoch 2/100 | LR: 4.00e-05 | Train Loss: 0.4123 (F:0.089, L1:1.987, G:-0.765) | Val Loss: 0.3890 (F:0.076, L1:1.876, G:-0.654)
+  → Best: best_checkpoint.pth (val_loss=0.3890)
+...
+Epoch 5/100 | LR: 1.00e-04 | Train Loss: 0.2567 (F:0.045, L1:1.234, G:-0.321) | Val Loss: 0.2345 (F:0.038, L1:1.123, G:-0.234)
+  → Saved: checkpoint_epoch_5.pth
+  → Best: best_checkpoint.pth (val_loss=0.2345)
 ```
 
 ### Continue from Checkpoint
 ```bash
 python train.py \
   --checkpoint checkpoints/checkpoint_epoch_50.pth \
-  [... other args ...]
+  --max_lr 1e-4 \
+  --min_lr 1e-6 \
+  --batch_size 16 \
+  --epochs 100
 ```
 **Note:** Always restarts from epoch 0 even when loading checkpoint (as requested).
 
@@ -188,8 +219,34 @@ data_dir/
 - **Objects:** ~72×65px (0.25% of image area)
 - **Dataset:** ~20K training images
 - **Target metric:** IoU > 0.5
-- **Model size:** 30.86M parameters
+- **Model size:** **30.86M parameters**
+  - Backbone (ConvNeXt-Tiny + FPN): 30.09M
+  - Correlation + Fusion: 0.08M
+  - Detection Head: 0.69M
 - **Speed:** Real-time inference on GPU
+
+## Testing Model
+
+```bash
+# Check model parameters and architecture
+python test_model.py
+```
+
+Output:
+```
+============================================================
+Model Architecture: CPN (Correlation Pyramid Network)
+============================================================
+Total parameters: 30,864,843 (30.86M)
+Trainable parameters: 30,864,843 (30.86M)
+============================================================
+
+Parameters by component:
+  Backbone (ConvNeXt-Tiny + FPN): 30,093,472 (30.09M)
+  Correlation + Fusion: 77,283 (0.08M)
+  Detection Head: 694,088 (0.69M)
+============================================================
+```
 
 ## Files
 
