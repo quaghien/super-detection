@@ -141,6 +141,7 @@ class CPN(nn.Module):
         # Detection head (apply sigmoid for inference)
         with torch.no_grad():
             objectness, bbox_offsets = self.detection_head(combined, apply_sigmoid=True)
+            bbox_offsets = torch.sigmoid(bbox_offsets)
         
         B, _, H_out, W_out = objectness.shape
         _, _, H_search, W_search = search.shape
@@ -168,10 +169,9 @@ class CPN(nn.Module):
             dw = offsets[2, i_max, j_max].item()
             dh = offsets[3, i_max, j_max].item()
             
-            # Decode bbox (P3 is 1/8 scale)
-            cell_size = 8
-            cx = (j_max + dx) * cell_size
-            cy = (i_max + dy) * cell_size
+            # Decode bbox (predictions are normalized [0, 1])
+            cx = dx * W_search
+            cy = dy * H_search
             w = dw * W_search
             h = dh * H_search
             

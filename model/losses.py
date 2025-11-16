@@ -236,11 +236,14 @@ class CPNLoss(nn.Module):
         # Positive mask (locations where target > threshold)
         pos_mask = (target_objectness > self.pos_threshold).float()
         
+        # Normalize bbox predictions to [0, 1] before regression losses
+        pred_bbox_norm = torch.sigmoid(pred_bbox)
+        
         # Compute L1 loss
-        loss_l1 = l1_loss(pred_bbox, target_bboxes, pos_mask)
+        loss_l1 = l1_loss(pred_bbox_norm, target_bboxes, pos_mask)
         
         # Compute GIoU loss
-        loss_giou = giou_loss(pred_bbox, target_bboxes, pos_mask)
+        loss_giou = giou_loss(pred_bbox_norm, target_bboxes, pos_mask)
         
         # Combined loss
         loss_total = (
