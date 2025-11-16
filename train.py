@@ -5,7 +5,6 @@ import argparse
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
-from torch.cuda.amp import autocast, GradScaler
 from pathlib import Path
 import time
 from tqdm import tqdm
@@ -123,7 +122,7 @@ def train_one_epoch(model, dataloader, criterion, optimizer, scaler, device, epo
         # Forward with autocast
         optimizer.zero_grad()
         
-        with autocast('cuda'):
+        with torch.amp.autocast('cuda'):
             pred_objectness, pred_bbox = model(templates, searches)
             losses = criterion(pred_objectness, pred_bbox, target_bboxes)
         
@@ -166,7 +165,7 @@ def validate(model, dataloader, criterion, device):
         target_bboxes = [t['bbox'].to(device) for t in targets]
         
         # Forward
-        with autocast('cuda'):
+        with torch.amp.autocast('cuda'):
             pred_objectness, pred_bbox = model(templates, searches)
             losses = criterion(pred_objectness, pred_bbox, target_bboxes)
         
@@ -278,7 +277,7 @@ def main():
     criterion = CPNLoss().to(device)
     
     # GradScaler for mixed precision (autocast will handle FP16 automatically)
-    scaler = GradScaler('cuda')
+    scaler = torch.amp.GradScaler('cuda')
     
     # Training loop
     print('\n=== Training ===')
